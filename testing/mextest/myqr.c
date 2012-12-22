@@ -1,0 +1,68 @@
+#include <string.h>
+#include "mex.h"
+
+void DisplayMatrix(char *Name, double *Data, int M, int N) { /* Display matrix data */
+    int m, n;
+
+    mexPrintf("%s = \n", Name);
+    
+    for(m = 0; m < M; m++, mexPrintf("\n"))
+        for(n = 0; n < N; n++)
+            mexPrintf("%8.4f ", Data[m + M*n]);
+}
+void CallQR(double *Data, int M, int N) { /* Perform QR factorization by calling the MATLAB function */
+    mxArray *S, *V, *U , *A;
+    mxArray *ppLhs[3];
+    
+    DisplayMatrix("Input", Data, M, N);
+    
+    A = mxCreateDoubleMatrix(M, N, mxREAL); /* Put input in an mxArray */
+    
+    memcpy(mxGetPr(A), Data, sizeof(double)*M*N);
+    mexCallMATLAB(2, ppLhs, 1, &A, "svd"); /* Call MATLAB's qr function */
+    
+    U = ppLhs[0];
+    S = ppLhs[1];
+    V = ppLhs[2];
+    
+    DisplayMatrix("U", mxGetPr(U), M, N);
+    DisplayMatrix("S", mxGetPr(S), M, N);
+    DisplayMatrix("V", mxGetPr(V), M, N);
+    
+    mxDestroyArray(U); /* No longer need these */
+    mxDestroyArray(S);
+    mxDestroyArray(V);
+    mxDestroyArray(A);
+}
+
+void CallEig(double *Data, int M, int N) { /* Perform QR factorization by calling the MATLAB function */
+    mxArray *Var, *Vec, *A;
+    mxArray *ppLhs[2];
+    
+    DisplayMatrix("Input", Data, M, N);
+    
+    A = mxCreateDoubleMatrix(M, N, mxREAL); /* Put input in an mxArray */
+    
+    memcpy(mxGetPr(A), Data, sizeof(double)*M*N);
+    mexCallMATLAB(2, ppLhs, 1, &A, "eig"); /* Call MATLAB's qr function */
+    
+    Var = ppLhs[0];
+    Vec = ppLhs[1];
+    
+    DisplayMatrix("Var", mxGetPr(Var), M, N);
+    DisplayMatrix("Vec", mxGetPr(Vec), M, N);
+    
+    mxDestroyArray(Var); /* No longer need these */
+    mxDestroyArray(Vec);
+    mxDestroyArray(A);
+}
+
+void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
+#define M_IN prhs[0]
+    
+    if(nrhs != 1 || mxGetNumberOfDimensions(M_IN) != 2 || !mxIsDouble(M_IN))
+        mexErrMsgTxt("Invalid input.");
+
+/*CallEig(mxGetPr(M_IN), mxGetM(M_IN), mxGetN(M_IN));*/
+CallQR(mxGetPr(M_IN), mxGetM(M_IN), mxGetN(M_IN));
+}

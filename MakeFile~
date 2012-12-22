@@ -1,0 +1,3 @@
+expport LD=/pkg/matlab/r2011a/extern/
+
+g++ -Wall -O3 mexNufft.cpp -I$LD/include -L$LD -o mexNufft

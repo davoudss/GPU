@@ -1,0 +1,6 @@
+
+LD=/pkg/matlab/r2011a/extern/include/
+LC=/pkg/matlab/r2011a/extern/lib/glnxa64/
+echo $LD
+echo $LC
+g++ -O3 mexNufft.cpp -I$LD -L$LC -o mexNufft
