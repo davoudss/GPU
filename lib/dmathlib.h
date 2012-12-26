@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <fftw3.h>
 #include <math.h>
+#include <omp.h>
 
 
 float norm (float* x, int N);
-double normD (double* x, int N);
-double normw(fftw_complex* x,int N);
-double normC(double *x_r, double *x_i, int N);
+double norm (double* x, int N);
+double norm(fftw_complex* x,int N);
 void fftshift(fftw_complex* in, fftw_complex* out,int N);
 void fftshiftn(fftw_complex* in, fftw_complex* out,int N1,int N2, int N3,int dim);
 
@@ -15,6 +15,7 @@ void fftshiftn(fftw_complex* in, fftw_complex* out,int N1,int N2, int N3,int dim
 float norm(float* x,int N)
 {
   float sum=0.;
+#pragma omp parallel for reduction(+:sum)
   for(int s=0;s<N;s++)
     sum += (float) x[s]*x[s];
 
@@ -22,31 +23,22 @@ float norm(float* x,int N)
 }
 
 /***********************************************************************/
-double normD(double* x,int N)
+double norm(double* x,int N)
 {
   double sum=0.;
+#pragma omp parallel for reduction(+:sum)
   for(int s=0;s<N;s++)
     sum += (double) x[s]*x[s];
 
   return sqrt(sum);
 }
 
-/***********************************************************************/
-double normC(double *x_r, double *x_i, int N)
-{
-  double sum=0;
-  for(int s=0;s<N;s++){
-    sum += (double) x_r[s]*x_r[s];
-    sum += (double) x_i[s]*x_i[s];
-  }
-  
-  return sqrt(sum);
-}
 
 /***********************************************************************/
-double normw(fftw_complex* x,int N)
+double norm(fftw_complex* x,int N)
 {
   double sum=0;
+#pragma omp parallel for reduction(+:sum)
   for(int s=0;s<N;s++){
     sum += (double) x[s][0]*x[s][0];
     sum += (double) x[s][1]*x[s][1];
@@ -98,7 +90,6 @@ void fftshift(fftw_complex* x, fftw_complex* y,int N)
 /***********************************************************************/
 void fftshiftn(fftw_complex* x, fftw_complex* y,int N,int dim)
 {
-
   int f1=0,f2=0,f3=0;
   int e1=0,e2=0,e3=0;
   int M=N/2;
@@ -121,7 +112,6 @@ void fftshiftn(fftw_complex* x, fftw_complex* y,int N,int dim)
   
   if (x==y){
     double temp;
-    
     for (int n1=0;n1<M+e2*M;n1++)
       for (int n2=0;n2<M+e3*M;n2++)
 	for (int n3=0;n3<M+e1*M;n3++)
@@ -139,7 +129,6 @@ void fftshiftn(fftw_complex* x, fftw_complex* y,int N,int dim)
 	}
   }
   else{   
-    
     
     for (int n1=0;n1<M+e2*M;n1++)
       for (int n2=0;n2<M+e3*M;n2++)

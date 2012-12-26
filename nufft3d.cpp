@@ -17,15 +17,17 @@
 #define Fapprox_r(i,j,k)      Fapprox_r[k+M*(j+M*i)]
 #define Fapprox_i(i,j,k)      Fapprox_i[k+M*(j+M*i)]
 
+//g++ -Wall -Ofast -fopenmp nufft3d.cpp -o nufft -lfftw3
+
 
 int main()
 {
   
-  int *u,M,N,Mr,P,cnt,nt,c1,c2,c3;
-  double h,Tau,nrm1,nrm2,L,a,b,utilde,vtilde, wtilde;
+  int *u,M,N,Mr,P,nt,c1,c2,c3;
+  double h,Tau,nrm1,nrm2,L,a,b;
   double *xj2,*xj1,*xj,*yj2,*yj1,*yj,*zj2,*zj1,*zj,*fj,gtau;
   double *Fapprox_r, *Fapprox_i, *Fexact_r, *Fexact_i;
-  double start, end;
+  double start=0., end=0.;
   fftw_complex *Ftau,*ftau;
   fftw_plan plan;
 
@@ -43,7 +45,7 @@ int main()
   a = 2.;
   b = 7.;
   L = (b-a)/2.;
-  M = 32;
+  M = 64;
   N = 4;
   Mr = 2*M;
   
@@ -51,9 +53,9 @@ int main()
   Tau = (double) 12.f/(double)(M*M);
 
   P = 12;
-  const size_t DATA_SIZE = N*N*N;
-  const   size_t SAMPLE_SIZE = M*M*M;
-  const  size_t OVERSAMPLE_SIZE = Mr*Mr*Mr;
+  const   size_t DATA_SIZE       = N*N*N;
+  const   size_t SAMPLE_SIZE     = M*M*M;
+  const   size_t OVERSAMPLE_SIZE = Mr*Mr*Mr;
 
   xj2     = (double*) malloc(sizeof(double)*N);
   xj1     = (double*) malloc(sizeof(double)*N);
@@ -67,22 +69,20 @@ int main()
 
   fj      = (double*) malloc(sizeof(double)*DATA_SIZE);
 
-  Ftau    = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * OVERSAMPLE_SIZE);
-
-  ftau    = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * OVERSAMPLE_SIZE);
-
   Fexact_r  = (double*) malloc(sizeof(double)*SAMPLE_SIZE);
   Fexact_i  = (double*) malloc(sizeof(double)*SAMPLE_SIZE);
 
   Fapprox_r = (double*) calloc(SAMPLE_SIZE,sizeof(double));
   Fapprox_i = (double*) calloc(SAMPLE_SIZE,sizeof(double));
 
+  Ftau = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * OVERSAMPLE_SIZE);
+  ftau = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * OVERSAMPLE_SIZE);
+
   //initialize ftau
-  for (int n1=0;n1<Mr;n1++)
-    for (int n2=0;n2<Mr;n2++)
-      for (int n3=0;n3<Mr;n3++){
-	ftau[n1*Mr*Mr+n2*M+n3][0] = 0.;
-	ftau[n1*Mr*Mr+n2*M+n3][1] = 0.;
+#pragma omp parallel for
+  for (int n1=0;n1<Mr*Mr*Mr;n1++){
+	ftau[n1][0] = 0.;
+	ftau[n1][1] = 0.;
       }
 
 
@@ -92,7 +92,7 @@ int main()
   for (int cu=0;cu<M;cu++)
     u[cu] = -M/2 + cu;
 
-  //#pragma omp parallel for shared(xj2,xj1,xj,fj)
+#pragma omp parallel for
   for(int n=0;n<N;n++){
 	//    srand(s);
 	//    xj[s] = rand() % L;
@@ -108,53 +108,45 @@ int main()
 	zj[n]  = (double) pi*zj1[n]/L;
       }
 
-
+#pragma omp parallel for 
   for(int n1=0;n1<N;n1++){
     for(int n2=0;n2<N;n2++){
       for(int n3=0;n3<N;n3++){
 	fj(n1,n2,n3)  = (double) -1.+2.*xj1[n1]+3.*yj1[n2]-2.*zj1[n3];
-	printf("%f\t",fj(n1,n2,n3));}
-      printf("\n");}
-    printf("\n\n");}
-
-  printf("%f\n",normD(xj,N));
-  printf("%f\n",normD(fj,N*N*N));
-
-  return 0;
-
+      }
+    }
+  }
+  
 
   //find the exact sum
-  cnt = 0;
-  //#pragma omp parallel for shared(Fexact,fj,xj2)
+#pragma omp parallel for
   for (int cu=0;cu<M;cu++){
-    utilde = u[cu]*pi/L;
+    double utilde = u[cu]*pi/L;
     for (int cv=0;cv<M;cv++){
-      vtilde = u[cv]*pi/L;
+      double vtilde = u[cv]*pi/L;
       for (int cw=0;cw<M;cw++){
-	wtilde = u[cw]*pi/L;
+	double wtilde = u[cw]*pi/L;
 	for (int n1=0;n1<N;n1++){
 	  for (int n2=0;n2<N;n2++){
 	    for (int n3=0;n3<N;n3++){
-	      double val = -utilde*xj2[n1]-vtilde*xj2[n2]-wtilde*xj2[n3];
-	      Fexact_r(n1,n2,n3)   += fj(n1,n2,n3)*cos(val);
-	      Fexact_i(n1,n2,n3)   += fj(n1,n2,n3)*sin(val);
+	      double val = (-utilde*xj2[n1]-vtilde*yj2[n2]-wtilde*zj2[n3]);
+	      Fexact_r(cu,cv,cw)   += fj(n1,n2,n3)*cos(val);
+	      Fexact_i(cu,cv,cw)   += fj(n1,n2,n3)*sin(val);
 	    }	   
 	  }
 	}
       }
     }
   }
-      
-  //  printC(Fexact,0,2*M);
-  nrm1 = normC(Fexact_r,Fexact_i,M*M*M);
+ 
 
-   //printf("\nFexact: %e",nrm1);
-  // printFile(Fexact,2*M,1);
+  nrm1 = sqrt(norm(Fexact_r,M*M*M)*norm(Fexact_r,M*M*M)+norm(Fexact_i,M*M*M)*norm(Fexact_i,M*M*M));
+
 
   //Find approximate sum
   //--------------------------------------------------
   //Gridding on an oversampled mesh
-  //#pragma omp parallel for shared(ftau,fj)
+  //#pragma omp parallel for
   for (int n1=0;n1<N;n1++){
     int cut1 = (int) round(xj[n1]/h);
     for (int n2=0;n2<N;n2++){
@@ -184,9 +176,8 @@ int main()
 	      else if (m3>=Mr)
 		c3 = m3-Mr;
 	      else
-		c3 = m3+Mr;
-	      
-	      ftau[c1*Mr*Mr+c2*Mr+c3][0]   += fj(c1,c2,c3)*gtau;	     
+		c3 = m3+Mr;	      	      
+	      ftau[c1*Mr*Mr+c2*Mr+c3][0]   += fj(n1,n2,n3)*gtau;	     
 	    }
 	  }
 	}
@@ -202,22 +193,25 @@ int main()
   fftshiftn(Ftau,Ftau,Mr,1);
   fftshiftn(Ftau,Ftau,Mr,2);
   fftshiftn(Ftau,Ftau,Mr,3);
+  
+
+  //debug until here, everything is fine
+
 
 
   //down sampling points
-  cnt = 0;
-  //#pragma omp parallel for shared(Fapprox_r,Fapprox_i)
+#pragma omp parallel for
   for (int n1=0;n1<M;n1++){
-    utilde = u[n1]*pi/L;
+    double utilde = u[n1]*pi/L;
     for (int n2=0;n2<M;n2++){
-      vtilde = u[n2]*pi/L;
+      double vtilde = u[n2]*pi/L;
       for (int n3=0;n3<M;n3++){
-	  wtilde = u[n3]*pi/L;
+	  double wtilde = u[n3]*pi/L;
  
 	  double mul    =  sqrt(pi/Tau)*sqrt(pi/Tau)*sqrt(pi/Tau)*exp((u[n1]*u[n1]+u[n2]*u[n2]+u[n3]*u[n3])*Tau)/(double) (Mr*Mr*Mr);
 	  double reScaling =  cos((utilde+vtilde+wtilde)*(b+a)/2.);
 	  double imScaling = -sin((utilde+vtilde+wtilde)*(b+a)/2.);
-	  int ind = n1*M*M+n2*M+n3;
+	  int ind = (n1+M/2)*Mr*Mr+(n2+M/2)*Mr+(n3+M/2);
 	  
 	  Fapprox_r(n1,n2,n3)   = (Ftau[ind][0]*reScaling-Ftau[ind][1]*imScaling)*mul;
 	  Fapprox_i(n1,n2,n3)   = (Ftau[ind][0]*imScaling+Ftau[ind][1]*reScaling)*mul;
@@ -225,15 +219,18 @@ int main()
     }
   }
 
+  nrm2 = sqrt(norm(Fapprox_r,M*M*M)*norm(Fapprox_r,M*M*M)+norm(Fapprox_i,M*M*M)*norm(Fapprox_i,M*M*M));
 
   //find the difference
-  //#pragma omp parallel for shared(Fapprox_r,Fapprox_i)
+#pragma omp parallel for
   for (int k=0;k<M*M*M;k++){
     Fapprox_r[k] = Fapprox_r[k] - Fexact_r[k];
     Fapprox_i[k] = Fapprox_i[k] - Fexact_i[k];
   }
 
-  nrm2 = normC(Fapprox_r,Fapprox_i,M*M*M);
+  nrm2 = sqrt(norm(Fapprox_r,M*M*M)*norm(Fapprox_r,M*M*M)+norm(Fapprox_i,M*M*M)*norm(Fapprox_i,M*M*M));
+
+  std::cout << "nrm2 " << nrm2 << std::endl;
   // printf("\nFapprox: %e",nrm);
 
   // printf("\n");
@@ -246,8 +243,14 @@ int main()
 
   printf("Duration: %f\n",end-start);
 
-  free(xj);
+  free(xj2);free(xj1);free(xj);
+  free(yj2);free(yj1);free(yj);
+  free(zj2);free(zj1);free(zj);
   free(fj);
+  free(Fexact_r);free(Fexact_i);
+  free(Fapprox_r);free(Fapprox_i);
+  fftw_free(Ftau);
+  fftw_free(ftau);
 }
 
 
