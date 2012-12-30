@@ -10,6 +10,10 @@
 #include "lib/fgglib.h"
 #include <fftw3.h>
 
+#ifndef VERBOSE
+#define VERBOSE 0
+#endif
+
 #define fj(i,j,k)             fj[k+N*(j+N*i)]
 
 #define Fexact_r(i,j,k)       Fexact_r[k+M*(j+M*i)]
@@ -22,7 +26,6 @@
 
 int main()
 {
-  
   int *u,M,N,Mr,P,nt,c1,c2,c3;
   double h,Tau,nrm1,nrm2,L,a,b;
   double *xj2,*xj1,*xj,*yj2,*yj1,*yj,*zj2,*zj1,*zj,*fj,gtau;
@@ -242,6 +245,10 @@ int main()
     end = omp_get_wtime();
 
   printf("Duration: %f\n",end-start);
+
+
+  if(VERBOSE)
+    printf("\nprint somthing DIGE\n");
 
   free(xj2);free(xj1);free(xj);
   free(yj2);free(yj1);free(yj);

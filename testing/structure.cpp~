@@ -1,0 +1,8 @@
+#include <iostream>
+
+typedef struct
+{
+
+
+
+}COMP;
