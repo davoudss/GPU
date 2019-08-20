@@ -1,3 +1,0 @@
-
-expport LD=pkg/matlab/r2011a/extern/
-g++ -O3 mex1.cpp -I/$LD/include/ -L/$LD/lib/ -o mex1
